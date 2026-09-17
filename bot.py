@@ -169,7 +169,7 @@ async def avatar(ctx, name: str, url: str = None):
     await ctx.reply(f"Avatar for **{contacts[name_key]['name']}** updated successfully!")
 
 @bot.command()
-async def nick(ctx, name: str, *, nickname: str):
+async def autonick(ctx, name: str, *, nickname: str):
     name_key = name.lower()
     if name_key in contacts:
         contacts[name_key]["nick"] = nickname
