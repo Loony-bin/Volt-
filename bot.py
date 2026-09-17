@@ -218,4 +218,4 @@ async def unauto(ctx, *, name: str):
     contacts[name_key]["auto_target_id"] = None
     await ctx.reply(f"Auto-proxy has been removed for **{contacts[name_key]['name']}**.")
 
-bot.run(TOKEN)
+bot.run("YOUR_REAL_TOKEN_HERE")
