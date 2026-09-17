@@ -82,7 +82,7 @@ async def customhelp(ctx):
         "`!register <Name> <prefix>text` - Register a new character (Attach image for avatar!)\n"
         "`!remove <Name>` - Remove a character by name\n"
         "`!list` - View your contact list\n"
-        "`!avatar <Name> <url>` - Set character avatar URL\n"
+        "`!avatar <Name> [url]` - Set character avatar URL (or attach an image!)\n"
         "`!nick <Name> <nickname>` - Set character display nickname\n"
         "`!hex <Name> #HEXCODE` - Set embed side-bar color (Dischook style)\n"
         "`!auto <Name> <#channel / thread_link / category>` - Auto-proxy a character\n"
@@ -149,13 +149,24 @@ async def list_contacts(ctx):
     await ctx.reply(msg)
 
 @bot.command()
-async def avatar(ctx, name: str, url: str):
+async def avatar(ctx, name: str, url: str = None):
     name_key = name.lower()
-    if name_key in contacts:
-        contacts[name_key]["avatar"] = url
-        await ctx.reply(f"Avatar for **{contacts[name_key]['name']}** updated successfully!")
-    else:
+    if name_key not in contacts:
         await ctx.reply(f"No contact found with the name **{name}**.")
+        return
+    
+    avatar_url = None
+    if ctx.message.attachments:
+        avatar_url = ctx.message.attachments[0].url
+    elif url:
+        avatar_url = url
+
+    if not avatar_url:
+        await ctx.reply("Please provide an image URL or attach an image with your command!")
+        return
+
+    contacts[name_key]["avatar"] = avatar_url
+    await ctx.reply(f"Avatar for **{contacts[name_key]['name']}** updated successfully!")
 
 @bot.command()
 async def nick(ctx, name: str, *, nickname: str):
