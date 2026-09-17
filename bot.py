@@ -14,7 +14,7 @@ async def on_ready():
     print(f"Logged in as {bot.user}")
 
 @bot.command(name="customhelp")
-async def help_command(ctx):
+async def customhelp(ctx):
     help_text = (
         "**Volt | Help Menu**\n\n"
         "**Managing Contacts**\n"
