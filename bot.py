@@ -63,9 +63,8 @@ async def on_message(message):
         avatar_url = matched_data["avatar"] if matched_data["avatar"] else message.author.display_avatar.url
 
         color = matched_data.get("embed_color") or discord.Color.default()
-        
-        # Using description supports custom emojis, headings (#), subtext (-#), and blockquotes (>)
-        embed = discord.Embed(description=actual_text, color=color)
+        embed = discord.Embed(color=color)
+        embed.set_author(name=actual_text)
 
         await webhook.send(
             embed=embed,
