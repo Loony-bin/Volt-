@@ -65,7 +65,7 @@ async def on_message(message):
             actual_text = content[len(data["prefix"]):].strip()
             break
 
-    # 2. Check auto-proxy triggers across multiple saved locations (checking both int and str types for safety)
+    # 2. Check auto-proxy triggers across multiple saved locations (channels, threads, categories)
     if not matched_data:
         for data in contacts.values():
             auto_targets = data.get("auto_targets", {})
@@ -88,14 +88,16 @@ async def on_message(message):
         except discord.HTTPException:
             pass
 
-        webhooks = await channel.webhooks()
+        # Threads use their parent channel for webhooks
+        webhook_channel = channel.parent if isinstance(channel, discord.Thread) else channel
+
+        webhooks = await webhook_channel.webhooks()
         webhook = discord.utils.get(webhooks, name="VoltProxy")
         
         if not webhook:
-            webhook = await channel.create_webhook(name="VoltProxy")
+            webhook = await webhook_channel.create_webhook(name="VoltProxy")
 
         channel_nicknames = matched_data.get("channel_nicknames", {})
-        # Check both integer and string versions of the channel ID for the nickname
         display_name = (
             channel_nicknames.get(channel_id) or 
             channel_nicknames.get(str(channel_id)) or 
@@ -106,14 +108,19 @@ async def on_message(message):
         avatar_url = matched_data["avatar"] if matched_data["avatar"] else message.author.display_avatar.url
         color = matched_data.get("embed_color") or discord.Color.default()
         
-        # Supports custom emojis, headings (#), subtext (-#), and blockquotes (>)
         embed = discord.Embed(description=actual_text, color=color)
 
-        await webhook.send(
-            embed=embed,
-            username=display_name,
-            avatar_url=avatar_url
-        )
+        send_kwargs = {
+            "embed": embed,
+            "username": display_name,
+            "avatar_url": avatar_url
+        }
+        
+        # If it's a thread, explicitly route the webhook message into the thread
+        if isinstance(channel, discord.Thread):
+            send_kwargs["thread"] = channel
+
+        await webhook.send(**send_kwargs)
         return
 
     await bot.process_commands(message)
@@ -127,10 +134,10 @@ async def customhelp(ctx):
         "`!list` - View your contact list\n"
         "`!avatar <Name> [url]` - Set character avatar URL (or attach an image!)\n"
         "`!nick <Name> <nickname>` - Set character global nickname\n"
-        "`!autonick <Name> <nickname> | <#channel>` - Set a clean channel-specific nickname\n"
+        "`!autonick <Name> <nickname> [<#channel / link>]` - Set a clean channel/thread-specific nickname\n"
         "`!hex <Name> #HEXCODE` - Set embed side-bar color (Dischook style)\n"
-        "`!auto <Name> [<#channel>]` - Add an auto-proxy location (keeps all existing ones!)\n"
-        "`!unauto <Name>` - Remove auto-proxying for this channel\n\n"
+        "`!auto <Name> [<#channel / link>]` - Add an auto-proxy location (channels or threads!)\n"
+        "`!unauto <Name>` - Remove auto-proxying for this location\n\n"
         "**Volt Bot Customization:**\n"
         "`!voltavatar [url]` - Change Volt's profile picture (or attach an image!)\n"
         "`!voltname <Name>` - Change Volt's global display name\n"
@@ -238,17 +245,14 @@ async def autonick(ctx, name: str, *, args: str):
         await ctx.reply(f"No contact found with the name **{name}**.")
         return
     
-    # Parse out channel mention/link from the end of the argument string
     target_id = None
     nickname = args.strip()
     
     if ctx.message.channel_mentions:
         target_id = ctx.message.channel_mentions[0].id
-        # Remove the channel mention text from the nickname string
         for mention in ctx.message.channel_mentions:
             nickname = nickname.replace(f"<#{mention.id}>", "").strip()
     else:
-        # Check if text contains a channel link or ID at the end
         parts = args.rsplit(" ", 1)
         if len(parts) == 2:
             potential_target = parts[1].strip()
@@ -267,7 +271,7 @@ async def autonick(ctx, name: str, *, args: str):
 
     contacts[name_key]["channel_nicknames"][target_id] = nickname
     save_contacts()
-    await ctx.reply(f"Channel nickname for **{contacts[name_key]['name']}** set to **{nickname}** cleanly for that channel!")
+    await ctx.reply(f"Thread/Channel nickname for **{contacts[name_key]['name']}** set to **{nickname}** cleanly!")
 
 @bot.command()
 async def hex(ctx, name: str, hex_code: str):
@@ -316,7 +320,7 @@ async def auto(ctx, name: str, *, target: str = None):
 
     contacts[name_key]["auto_targets"][target_id] = True
     save_contacts()
-    await ctx.reply(f"Character **{contacts[name_key]['name']}** has been added to this auto-proxy location (all other locations remain active)!")
+    await ctx.reply(f"Character **{contacts[name_key]['name']}** has been added to this location (channels & threads fully supported)!")
 
 @bot.command()
 async def unauto(ctx, *, name: str):
@@ -333,9 +337,9 @@ async def unauto(ctx, *, name: str):
         if channel_id in contacts[name_key].get("channel_nicknames", {}):
             del contacts[name_key]["channel_nicknames"][channel_id]
         save_contacts()
-        await ctx.reply(f"Auto-proxy removed for **{contacts[name_key]['name']}** in this specific channel.")
+        await ctx.reply(f"Auto-proxy removed for **{contacts[name_key]['name']}** in this specific location.")
     else:
-        await ctx.reply(f"Character **{contacts[name_key]['name']}** is not auto-proxied in this channel.")
+        await ctx.reply(f"Character **{contacts[name_key]['name']}** is not auto-proxied in this location.")
 
 # --- VOLT BOT PROFILE CUSTOMIZATION ---
 @bot.command(name="voltavatar")
