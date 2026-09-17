@@ -7,7 +7,7 @@ intents.message_content = True
 bot = commands.Bot(command_prefix="!", intents=intents)
 
 # Dictionary to store contacts by NAME: 
-# { "cairo": { "prefix": "c!", "name": "Cairo", "avatar": "...", "nick": "...", "embed_color": None, "ansi_code": None, "auto_target_id": None } }
+# { "name_key": { "prefix": "...", "name": "...", "avatar": "...", "nick": "...", "embed_color": "...", "auto_target_id": None } }
 contacts = {}
 
 @bot.event
@@ -36,7 +36,6 @@ async def on_message(message):
         for data in contacts.values():
             target_id = data.get("auto_target_id")
             if target_id:
-                # Check if message is in the target channel, thread, or category
                 channel = message.channel
                 is_match = (
                     channel.id == target_id or 
@@ -64,24 +63,15 @@ async def on_message(message):
         display_name = matched_data["nick"] if matched_data["nick"] else matched_data["name"]
         avatar_url = matched_data["avatar"] if matched_data["avatar"] else message.author.display_avatar.url
 
-        if matched_data.get("embed_color"):
-            embed = discord.Embed(description=actual_text, color=matched_data["embed_color"])
-            await webhook.send(
-                embed=embed,
-                username=display_name,
-                avatar_url=avatar_url
-            )
-        else:
-            final_content = actual_text
-            if matched_data.get("ansi_code"):
-                code = matched_data["ansi_code"]
-                final_content = f"```ansi\n\u001b[{code}m{actual_text}\u001b[0m\n```"
+        # Dischook-style Embed Look (Side bar color support)
+        color = matched_data.get("embed_color") or discord.Color.default()
+        embed = discord.Embed(description=actual_text, color=color)
 
-            await webhook.send(
-                content=final_content,
-                username=display_name,
-                avatar_url=avatar_url
-            )
+        await webhook.send(
+            embed=embed,
+            username=display_name,
+            avatar_url=avatar_url
+        )
         return
 
     await bot.process_commands(message)
@@ -95,8 +85,7 @@ async def customhelp(ctx):
         "`!list` - View your contact list\n"
         "`!avatar <Name> <url>` - Set character avatar URL\n"
         "`!nick <Name> <nickname>` - Set character display nickname\n"
-        "`hex! <Name> #HEXCODE` - Set embed side-bar color\n"
-        "`text! <Name> #HEXCODE` - Set text color using a Hex code\n"
+        "`!hex <Name> #HEXCODE` - Set embed side-bar color (Dischook style)\n"
         "`!auto <Name> <#channel / thread_link / category>` - Auto-proxy a character\n"
         "`!unauto <Name>` - Remove auto-proxying for a character\n"
     )
@@ -105,7 +94,7 @@ async def customhelp(ctx):
 @bot.command()
 async def register(ctx, name: str, proxy_format: str):
     if not proxy_format.endswith("text"):
-        await ctx.reply("Invalid format! End with `text`, like: `!register Cairo c!text`")
+        await ctx.reply("Invalid format! End with `text`, like: `!register CharacterName prefixtext`")
         return
     
     prefix = proxy_format[:-4]
@@ -125,7 +114,6 @@ async def register(ctx, name: str, proxy_format: str):
         "avatar": avatar_url,
         "nick": None,
         "embed_color": None,
-        "ansi_code": None,
         "auto_target_id": None
     }
     
@@ -179,8 +167,8 @@ async def nick(ctx, name: str, *, nickname: str):
     else:
         await ctx.reply(f"No contact found with the name **{name}**.")
 
-@bot.command(name="hex")
-async def hex_color(ctx, name: str, hex_code: str):
+@bot.command()
+async def hex(ctx, name: str, hex_code: str):
     name_key = name.lower()
     if name_key not in contacts:
         await ctx.reply(f"No contact found with the name **{name}**.")
@@ -190,47 +178,9 @@ async def hex_color(ctx, name: str, hex_code: str):
         clean_hex = hex_code.lstrip("#")
         color_int = int(clean_hex, 16)
         contacts[name_key]["embed_color"] = discord.Color(color_int)
-        contacts[name_key]["ansi_code"] = None
         await ctx.reply(f"Embed side-bar color for **{contacts[name_key]['name']}** updated to `{hex_code}`!")
     except ValueError:
         await ctx.reply("Invalid HEX code! Please use a valid format like `#5E707A`.")
-
-@bot.command(name="text")
-async def text_color(ctx, name: str, input_val: str):
-    name_key = name.lower()
-    if name_key not in contacts:
-        await ctx.reply(f"No contact found with the name **{name}**.")
-        return
-    
-    if input_val.lower() == "reset":
-        contacts[name_key]["ansi_code"] = None
-        await ctx.reply(f"Text color for **{contacts[name_key]['name']}** has been reset.")
-        return
-
-    if input_val.startswith("#") or len(input_val) == 6:
-        try:
-            clean_hex = input_val.lstrip("#")
-            r = int(clean_hex[0:2], 16)
-            g = int(clean_hex[2:4], 16)
-            b = int(clean_hex[4:6], 16)
-            
-            if r > 150 and g < 100 and b < 100: code = "0;31"
-            elif g > 150 and r < 100: code = "0;32"
-            elif r > 150 and g > 150 and b < 100: code = "0;33"
-            elif b > 150 and r < 100: code = "0;34"
-            elif r > 150 and b > 150: code = "0;35"
-            elif g > 150 and b > 150: code = "0;36"
-            elif r > 200 and g > 200 and b > 200: code = "0;37"
-            else: code = "0;30"
-            
-            contacts[name_key]["ansi_code"] = code
-            contacts[name_key]["embed_color"] = None
-            await ctx.reply(f"Text color for **{contacts[name_key]['name']}** mapped from `{input_val}` successfully!")
-            return
-        except ValueError:
-            pass
-
-    await ctx.reply("Invalid format! Use a Hex code like `#7D8D95` or type `reset`.")
 
 @bot.command()
 async def auto(ctx, name: str, target: str = None):
@@ -240,12 +190,9 @@ async def auto(ctx, name: str, target: str = None):
         return
     
     target_id = None
-    
-    # Check if a channel mention was provided (e.g. #chat)
     if ctx.message.channel_mentions:
         target_id = ctx.message.channel_mentions[0].id
     elif target:
-        # Check if they pasted a thread link or ID
         if "discord.com/channels/" in target:
             try:
                 parts = target.split("/")
@@ -256,7 +203,6 @@ async def auto(ctx, name: str, target: str = None):
             target_id = int(target)
             
     if not target_id:
-        # Default to current channel if none specified
         target_id = ctx.channel.id
 
     contacts[name_key]["auto_target_id"] = target_id
