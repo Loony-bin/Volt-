@@ -167,4 +167,4 @@ async def hex(ctx, prefix: str, color_code: str):
     except ValueError:
         await ctx.reply("Invalid hex code format! Please use something like `!hex c! #FF5733`.")
 
-bot.run("MTU0OTA4Njk2MDk4NjA5OTc0Mw.GPpHq_.eBZkgpAkq8ae_wJ0DICtQt-AofD6dR73TdOlu8")
+bot.run("MTU0OTA4Njk2MDk4NjA5OTc0Mw.GPpHq_.eBZkgpAkq8ae_wJ0DICtQt-AofD6dR73TdOlu8.GPpHq_.eBZkgpAkq8ae_wJ0DICtQt-AofD6dR73TdOlu8")
