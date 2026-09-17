@@ -13,7 +13,7 @@ contacts = {}
 async def on_ready():
     print(f"Logged in as {bot.user}")
 
-@bot.command(name="help")
+@bot.command(name="customhelp")
 async def help_command(ctx):
     help_text = (
         "**Volt | Help Menu**\n\n"
