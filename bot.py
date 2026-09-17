@@ -9,8 +9,6 @@ intents.message_content = True
 
 bot = commands.Bot(command_prefix="!", intents=intents)
 
-# Dictionary to store contacts by NAME: 
-# { "name_key": { "prefix": "...", "name": "...", "avatar": "...", "nick": "...", "embed_color": "...", "auto_target_id": None } }
 contacts = {}
 
 @bot.event
@@ -25,7 +23,6 @@ async def on_message(message):
     content = message.content
     matched_data = None
     
-    # 1. Check if the message matches any registered prefix manually
     sorted_items = sorted(contacts.values(), key=lambda x: len(x["prefix"]), reverse=True)
     
     for data in sorted_items:
@@ -34,7 +31,6 @@ async def on_message(message):
             actual_text = content[len(data["prefix"]):].strip()
             break
 
-    # 2. If no prefix matched, check if the character is auto-proxied to this channel/thread/category
     if not matched_data:
         for data in contacts.values():
             target_id = data.get("auto_target_id")
@@ -66,9 +62,9 @@ async def on_message(message):
         display_name = matched_data["nick"] if matched_data["nick"] else matched_data["name"]
         avatar_url = matched_data["avatar"] if matched_data["avatar"] else message.author.display_avatar.url
 
-        # Dischook-style Embed Look (Side bar color support)
         color = matched_data.get("embed_color") or discord.Color.default()
-        embed = discord.Embed(description=actual_text, color=color)
+        embed = discord.Embed(color=color)
+        embed.set_author(name=actual_text)
 
         await webhook.send(
             embed=embed,
